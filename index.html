@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpaCal Component Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #04080f;
+    --bg2: #080f1a;
+    --bg3: #0d1625;
+    --border: #1a2d4a;
+    --border2: #243d60;
+    --accent: #00d4ff;
+    --accent2: #0088cc;
+    --green: #00ff88;
+    --orange: #ff8c00;
+    --red: #ff3355;
+    --text: #c8ddf0;
+    --text2: #6b8faa;
+    --text3: #3a5570;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    position: relative;
+    z-index: 10;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    gap: 16px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    border: 1.5px solid var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0;
+    background: rgba(0,212,255,0.05);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .logo-icon::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: linear-gradient(45deg, transparent 40%, rgba(0,212,255,0.1) 50%, transparent 60%);
+    animation: shimmer 3s infinite;
+  }
+
+  @keyframes shimmer { 0% { transform: translateX(-100%) } 100% { transform: translateX(100%) } }
+
+  .logo-text {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 2px;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    font-family: var(--mono);
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    padding: 8px 16px;
+    text-transform: uppercase;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+  }
+  .btn-primary:hover { background: #33ddff; transform: translateY(-1px); }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-danger {
+    background: transparent;
+    border: 1px solid rgba(255,51,85,0.4);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: rgba(255,51,85,0.1); }
+
+  .btn-green {
+    background: var(--green);
+    color: var(--bg);
+  }
+  .btn-green:hover { background: #33ffaa; }
+
+  /* ─── STATUS BADGE ─── */
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  /* ─── MAIN LAYOUT ─── */
+  .main {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 20px;
+  }
+
+  /* ─── AUTH SCREEN ─── */
+  #auth-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 60px);
+    gap: 32px;
+    text-align: center;
+  }
+
+  .auth-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px;
+    max-width: 480px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .auth-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+
+  .auth-title {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .auth-sub {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+
+  .auth-features {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 32px;
+    text-align: left;
+  }
+
+  .auth-feature {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--text2);
+    font-family: var(--mono);
+  }
+
+  .auth-feature span:first-child {
+    color: var(--accent);
+    font-size: 14px;
+  }
+
+  /* ─── SETUP SCREEN ─── */
+  #setup-screen {
+    display: none;
+    max-width: 600px;
+    margin: 40px auto;
+  }
+
+  .setup-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .setup-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--orange), transparent);
+  }
+
+  .setup-title {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--orange);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  .setup-desc {
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  input[type="text"], input[type="password"], select, textarea {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--bg3); }
+
+  /* ─── APP SCREEN ─── */
+  #app-screen { display: none; }
+
+  .top-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search-wrap {
+    flex: 1;
+    min-width: 200px;
+    position: relative;
+  }
+
+  .search-wrap input {
+    padding-left: 36px;
+  }
+
+  .search-icon {
+    position: absolute;
+    left: 12px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text3);
+    font-size: 13px;
+  }
+
+  /* ─── TABS ─── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tab {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    cursor: pointer;
+    color: var(--text3);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    background: transparent;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ─── COMPONENT GRID ─── */
+  .component-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+  }
+
+  .component-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .component-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--accent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .component-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  .component-card:hover::before { opacity: 1; }
+
+  .card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 8px;
+  }
+
+  .card-id {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+
+  .card-type {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+    line-height: 1.3;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  .meta-chip {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text2);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+  }
+
+  .status-chip {
+    font-family: var(--mono);
+    font-size: 10px;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-weight: 500;
+  }
+
+  .status-ok { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid rgba(0,255,136,0.2); }
+  .status-wip { background: rgba(0,212,255,0.1); color: var(--accent); border: 1px solid rgba(0,212,255,0.2); }
+  .status-todo { background: rgba(255,140,0,0.1); color: var(--orange); border: 1px solid rgba(255,140,0,0.2); }
+  .status-fail { background: rgba(255,51,85,0.1); color: var(--red); border: 1px solid rgba(255,51,85,0.2); }
+
+  /* ─── SCANNER ─── */
+  #scanner-tab { display: none; }
+
+  .scanner-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  #scanner-viewport {
+    width: 100%;
+    max-width: 360px;
+    height: 240px;
+    background: var(--bg3);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 0 auto 20px;
+    position: relative;
+    border: 2px solid var(--border);
+  }
+
+  #scanner-viewport video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+
+  .scan-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .scan-frame {
+    width: 200px; height: 120px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    position: relative;
+    animation: pulse-border 2s infinite;
+  }
+
+  @keyframes pulse-border {
+    0%, 100% { border-color: var(--accent); box-shadow: 0 0 0 0 rgba(0,212,255,0.3); }
+    50% { border-color: #33ddff; box-shadow: 0 0 0 6px rgba(0,212,255,0); }
+  }
+
+  .scan-line {
+    position: absolute;
+    left: 4px; right: 4px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: scan 2s infinite;
+    top: 0;
+  }
+
+  @keyframes scan {
+    0% { top: 8px; opacity: 1; }
+    90% { top: calc(100% - 8px); opacity: 1; }
+    100% { top: 8px; opacity: 0; }
+  }
+
+  #manual-code {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  /* ─── DETAIL PANEL ─── */
+  #detail-panel {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .detail-card {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .detail-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    border-radius: 16px 16px 0 0;
+  }
+
+  .detail-header {
+    padding: 24px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .detail-body { padding: 20px 24px 24px; }
+
+  .detail-section {
+    margin-bottom: 20px;
+  }
+
+  .detail-section-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 7px 0;
+    gap: 16px;
+    border-bottom: 1px solid rgba(26,45,74,0.5);
+  }
+
+  .detail-row:last-child { border-bottom: none; }
+
+  .detail-key {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    flex-shrink: 0;
+    min-width: 120px;
+  }
+
+  .detail-val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    text-align: right;
+    word-break: break-all;
+  }
+
+  /* ─── ADD FORM ─── */
+  #add-tab { display: none; }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .form-grid .full { grid-column: 1 / -1; }
+
+  .form-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 700px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .form-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+  }
+
+  /* ─── LOADING / TOAST ─── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    z-index: 9999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    max-width: 320px;
+  }
+
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-color: rgba(0,255,136,0.4); color: var(--green); }
+  #toast.error { border-color: rgba(255,51,85,0.4); color: var(--red); }
+
+  .loader {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+
+  .empty-state .big { font-size: 32px; margin-bottom: 12px; }
+
+  /* ─── BARCODE SVG ─── */
+  .barcode-wrap {
+    background: white;
+    border-radius: 6px;
+    padding: 8px 12px 4px;
+    display: inline-block;
+    margin-top: 10px;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 600px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid .full { grid-column: 1; }
+    header { padding: 0 14px; }
+    .auth-card { padding: 28px 20px; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚛</div>
+    <div>
+      <div class="logo-text">SPACAL TRACKER</div>
+      <div class="logo-sub">LHCb · Component Traceability</div>
+    </div>
+  </div>
+  <div class="header-right" id="header-right">
+    <div id="user-info" style="font-family:var(--mono);font-size:11px;color:var(--text3);display:none;"></div>
+    <button class="btn btn-ghost" id="sign-out-btn" style="display:none;" onclick="signOut()">Sign Out</button>
+  </div>
+</header>
+
+<!-- AUTH SCREEN -->
+<div class="main" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-title">COMPONENT TRACKER</div>
+    <div class="auth-sub">Full traceability for SpaCal modules.<br>Sign in with your CERN Google account to continue.</div>
+    <div class="auth-features">
+      <div class="auth-feature"><span>◈</span> Scan barcodes to retrieve component details</div>
+      <div class="auth-feature"><span>◈</span> Track bundlers, LGs, fibres, absorbers per module</div>
+      <div class="auth-feature"><span>◈</span> Full production history stored in Google Sheets</div>
+      <div class="auth-feature"><span>◈</span> Works on any device — phone, tablet, desktop</div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="startSignIn()">
+      Sign in with Google (CERN)
+    </button>
+    <div style="margin-top:16px;text-align:center;">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--text3);">
+        First time? You'll need to configure the Sheet ID after sign-in.
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div class="main" id="setup-screen">
+  <div class="setup-card">
+    <div class="setup-title">⚙ FIRST-TIME SETUP</div>
+    <div class="setup-desc">Paste your Google Sheet ID to connect the database. You only need to do this once.</div>
+    <div class="field-group">
+      <label>Google Sheet ID</label>
+      <input type="text" id="sheet-id-input" placeholder="e.g. 1At98yFv0E2Ih16BmlATKoO55hd5ZkUvvMWnRoaUNyYQ" />
+      <span style="font-size:11px;color:var(--text3);font-family:var(--mono);">From the URL: docs.google.com/spreadsheets/d/<b style="color:var(--accent)">THIS_PART</b>/edit</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn btn-primary" onclick="saveSetup()">Connect Sheet</button>
+      <button class="btn btn-ghost" onclick="signOut()">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div class="main" id="app-screen">
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('browse')">◧ Browse</button>
+    <button class="tab" onclick="switchTab('scanner')">⊡ Scanner</button>
+    <button class="tab" onclick="switchTab('add')">+ Add Component</button>
+  </div>
+
+  <!-- BROWSE TAB -->
+  <div id="browse-tab">
+    <div class="top-bar">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="search-input" placeholder="Search by name, ID, batch, type..." oninput="filterComponents()" />
+      </div>
+      <select id="type-filter" onchange="filterComponents()" style="width:auto;padding:10px 12px;">
+        <option value="">All types</option>
+        <option value="Module">Module</option>
+        <option value="Bundler">Bundler</option>
+        <option value="LG">LG (Lead Glass)</option>
+        <option value="Fibre Spool">Fibre Spool</option>
+        <option value="Absorber">Absorber</option>
+        <option value="SiPM">SiPM</option>
+        <option value="PCB">PCB</option>
+        <option value="Other">Other</option>
+      </select>
+      <button class="btn btn-ghost" onclick="loadComponents()">↻ Refresh</button>
+    </div>
+    <div id="components-grid" class="component-grid">
+      <div class="empty-state"><div class="big">◌</div>Loading components...</div>
+    </div>
+  </div>
+
+  <!-- SCANNER TAB -->
+  <div id="scanner-tab">
+    <div class="scanner-box">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--text2);margin-bottom:20px;letter-spacing:1px;">BARCODE SCANNER</div>
+      <div id="scanner-viewport">
+        <div class="scan-overlay">
+          <div class="scan-frame"><div class="scan-line"></div></div>
+        </div>
+      </div>
+      <div id="scanner-status" style="font-family:var(--mono);font-size:11px;color:var(--text3);margin-bottom:16px;">Camera inactive</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;">
+        <button class="btn btn-primary" id="scan-btn" onclick="startScanner()">Start Camera</button>
+        <button class="btn btn-ghost" id="stop-btn" onclick="stopScanner()" style="display:none;">Stop</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:10px;">— OR ENTER MANUALLY —</div>
+      <div id="manual-code">
+        <input type="text" id="manual-input" placeholder="Enter component code..." style="flex:1;" onkeydown="if(event.key==='Enter')lookupCode()" />
+        <button class="btn btn-primary" onclick="lookupCode()">Look up</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD TAB -->
+  <div id="add-tab">
+    <div class="form-card">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--green);letter-spacing:2px;margin-bottom:4px;">+ NEW COMPONENT</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:24px;">Register a new component and generate its barcode label.</div>
+
+      <div class="form-grid">
+        <div class="field-group">
+          <label>Component Type *</label>
+          <select id="new-type" onchange="updateCodePreview()">
+            <option value="">Select type...</option>
+            <option value="Module">Module</option>
+            <option value="Bundler">Bundler</option>
+            <option value="LG">LG (Lead Glass)</option>
+            <option value="Fibre Spool">Fibre Spool</option>
+            <option value="Absorber">Absorber</option>
+            <option value="SiPM">SiPM</option>
+            <option value="PCB">PCB</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Name / ID *</label>
+          <input type="text" id="new-name" placeholder="e.g. SpaCal-W-001" oninput="updateCodePreview()" />
+        </div>
+        <div class="field-group">
+          <label>Batch / Lot</label>
+          <input type="text" id="new-batch" placeholder="e.g. B2024-03" />
+        </div>
+        <div class="field-group">
+          <label>Serial Number</label>
+          <input type="text" id="new-serial" placeholder="e.g. SN-00142" />
+        </div>
+        <div class="field-group">
+          <label>Status</label>
+          <select id="new-status">
+            <option value="In Production">In Production</option>
+            <option value="Tested">Tested</option>
+            <option value="Approved">Approved</option>
+            <option value="Failed">Failed</option>
+            <option value="In Stock">In Stock</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label>Location</label>
+          <input type="text" id="new-location" placeholder="e.g. Lab 158, Shelf A3" />
+        </div>
+
+        <!-- Module-specific fields -->
+        <div class="field-group" id="field-bundler">
+          <label>Bundler ID</label>
+          <input type="text" id="new-bundler" placeholder="e.g. BND-007" />
+        </div>
+        <div class="field-group" id="field-lg">
+          <label>LG (Lead Glass) ID</label>
+          <input type="text" id="new-lg" placeholder="e.g. LG-042" />
+        </div>
+        <div class="field-group" id="field-spool">
+          <label>Fibre Spool ID</label>
+          <input type="text" id="new-spool" placeholder="e.g. SP-2024-11" />
+        </div>
+        <div class="field-group" id="field-absorber">
+          <label>Absorber ID</label>
+          <input type="text" id="new-absorber" placeholder="e.g. ABS-019" />
+        </div>
+
+        <div class="field-group full">
+          <label>Notes</label>
+          <textarea id="new-notes" rows="3" placeholder="Additional info, references, observations..."></textarea>
+        </div>
+
+        <div class="field-group full" id="code-preview-wrap" style="display:none;">
+          <label>Generated Code</label>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div style="font-family:var(--mono);font-size:14px;color:var(--accent);background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:6px;padding:8px 16px;" id="code-preview"></div>
+            <div class="barcode-wrap" id="barcode-preview"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap;">
+        <button class="btn btn-green" onclick="addComponent()">Save & Generate Label</button>
+        <button class="btn btn-ghost" onclick="clearForm()">Clear</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- DETAIL PANEL -->
+<div id="detail-panel" onclick="closeDetail(event)">
+  <div class="detail-card" id="detail-card">
+    <div class="detail-header">
+      <div>
+        <div id="detail-id" class="card-id" style="display:inline-block;margin-bottom:8px;font-size:12px;"></div>
+        <div id="detail-name" style="font-size:20px;font-weight:600;color:var(--text);font-family:var(--sans);"></div>
+        <div id="detail-type" class="card-type" style="margin-top:4px;"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+        <button class="btn btn-ghost" style="padding:6px 12px;" onclick="closeDetail()">✕</button>
+        <div id="detail-status"></div>
+      </div>
+    </div>
+    <div class="detail-body">
+      <div id="detail-sections"></div>
+      <div style="margin-top:20px;text-align:center;">
+        <div class="barcode-wrap" id="detail-barcode"></div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-top:8px;">Scan to retrieve this component</div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+          <button class="btn btn-ghost" onclick="printLabel(currentComponent)">🖨 Print Dymo Label</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── CONFIG ───
+const CLIENT_ID = '1098088871921-hvs47u1f6fgd9m51of7tkjkagj5vb12u.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+const DISCOVERY_DOC = 'https://sheets.googleapis.com/$discovery/rest?version=v4';
+const SHEET_NAME = 'Components';
+
+let tokenClient, gapiLoaded = false, gisLoaded = false;
+let accessToken = null;
+let sheetId = localStorage.getItem('spacal_sheet_id') || '';
+let components = [];
+let currentComponent = null;
+let scannerRunning = false;
+
+// ─── LOAD GOOGLE APIs ───
+function loadGoogleAPIs() {
+  const gapiScript = document.createElement('script');
+  gapiScript.src = 'https://apis.google.com/js/api.js';
+  gapiScript.onload = () => {
+    gapi.load('client', async () => {
+      await gapi.client.init({ discoveryDocs: [DISCOVERY_DOC] });
+      gapiLoaded = true;
+      tryInit();
+    });
+  };
+  document.head.appendChild(gapiScript);
+
+  const gisScript = document.createElement('script');
+  gisScript.src = 'https://accounts.google.com/gsi/client';
+  gisScript.onload = () => {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: async (resp) => {
+        if (resp.error) { showToast('Sign-in failed: ' + resp.error, 'error'); return; }
+        accessToken = resp.access_token;
+        gapi.client.setToken({ access_token: accessToken });
+        const profile = parseJwt(resp.id_token || '');
+        if (profile?.email) document.getElementById('user-info').textContent = profile.email;
+        document.getElementById('user-info').style.display = 'block';
+        document.getElementById('sign-out-btn').style.display = 'block';
+        afterSignIn();
+      },
+    });
+    gisLoaded = true;
+    tryInit();
+  };
+  document.head.appendChild(gisScript);
+}
+
+function tryInit() {
+  if (gapiLoaded && gisLoaded) {
+    const saved = localStorage.getItem('spacal_token');
+    if (saved) {
+      try {
+        const t = JSON.parse(saved);
+        if (Date.now() < t.expires) {
+          accessToken = t.token;
+          gapi.client.setToken({ access_token: accessToken });
+          afterSignIn();
+          return;
+        }
+      } catch {}
+    }
+  }
+}
+
+function startSignIn() {
+  if (!gisLoaded) { showToast('Google SDK loading, please wait...', ''); return; }
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function signOut() {
+  accessToken = null;
+  localStorage.removeItem('spacal_token');
+  document.getElementById('auth-screen').style.display = 'flex';
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('sign-out-btn').style.display = 'none';
+  document.getElementById('user-info').style.display = 'none';
+}
+
+function afterSignIn() {
+  if (!sheetId) {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('setup-screen').style.display = 'block';
+    document.getElementById('sheet-id-input').value = '1At98yFv0E2Ih16BmlATKoO55hd5ZkUvvMWnRoaUNyYQ';
+  } else {
+    showApp();
+  }
+}
+
+function saveSetup() {
+  const val = document.getElementById('sheet-id-input').value.trim();
+  if (!val) { showToast('Please enter a Sheet ID', 'error'); return; }
+  sheetId = val;
+  localStorage.setItem('spacal_sheet_id', val);
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('setup-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'block';
+  document.getElementById('sign-out-btn').style.display = 'block';
+  initSheet().then(loadComponents);
+}
+
+// ─── PARSE JWT (for user email) ───
+function parseJwt(token) {
+  try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
+}
+
+// ─── SHEET INIT: create headers if needed ───
+async function initSheet() {
+  try {
+    const r = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${SHEET_NAME}!A1:Z1`,
+    });
+    if (!r.result.values) await writeHeaders();
+  } catch {
+    // Sheet/tab may not exist yet — try to add it
+    try {
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: sheetId,
+        resource: { requests: [{ addSheet: { properties: { title: SHEET_NAME } } }] },
+      });
+      await writeHeaders();
+    } catch {}
+  }
+}
+
+const HEADERS = ['Code','Type','Name','Batch','Serial','Status','Location','Bundler_ID','LG_ID','Fibre_Spool','Absorber_ID','Notes','Created','Created_By'];
+
+async function writeHeaders() {
+  await gapi.client.sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `${SHEET_NAME}!A1`,
+    valueInputOption: 'RAW',
+    resource: { values: [HEADERS] },
+  });
+}
+
+// ─── LOAD COMPONENTS ───
+async function loadComponents() {
+  document.getElementById('components-grid').innerHTML = '<div class="empty-state"><div><span class="loader"></span>Loading...</div></div>';
+  try {
+    const r = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${SHEET_NAME}!A1:Z1000`,
+    });
+    const rows = r.result.values || [];
+    if (rows.length < 2) { components = []; renderComponents([]); return; }
+    const headers = rows[0];
+    components = rows.slice(1).map((row, i) => {
+      const obj = { _row: i + 2 };
+      headers.forEach((h, j) => obj[h] = row[j] || '');
+      return obj;
+    }).filter(c => c.Code);
+    filterComponents();
+  } catch (e) {
+    document.getElementById('components-grid').innerHTML = '<div class="empty-state"><div>⚠ Could not load data.<br><small>' + e.message + '</small></div></div>';
+  }
+}
+
+function filterComponents() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const t = document.getElementById('type-filter').value;
+  let filtered = components.filter(c => {
+    const matchQ = !q || Object.values(c).some(v => v.toLowerCase().includes(q));
+    const matchT = !t || c.Type === t;
+    return matchQ && matchT;
+  });
+  renderComponents(filtered);
+}
+
+function renderComponents(list) {
+  const grid = document.getElementById('components-grid');
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="big">◌</div>No components found.</div>';
+    return;
+  }
+  grid.innerHTML = list.map(c => `
+    <div class="component-card" onclick="showDetail('${c.Code}')">
+      <div class="card-header">
+        <div class="card-id">${c.Code}</div>
+        <div class="card-type">${c.Type}</div>
+      </div>
+      <div class="card-name">${c.Name}</div>
+      <div class="card-meta">
+        ${c.Status ? `<div class="status-chip ${statusClass(c.Status)}">${c.Status}</div>` : ''}
+        ${c.Batch ? `<div class="meta-chip">Batch: ${c.Batch}</div>` : ''}
+        ${c.Location ? `<div class="meta-chip">${c.Location}</div>` : ''}
+        ${c.Bundler_ID ? `<div class="meta-chip">BND: ${c.Bundler_ID}</div>` : ''}
+        ${c.LG_ID ? `<div class="meta-chip">LG: ${c.LG_ID}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function statusClass(s) {
+  if (!s) return '';
+  if (s === 'Approved' || s === 'In Stock') return 'status-ok';
+  if (s === 'In Production' || s === 'Tested') return 'status-wip';
+  if (s === 'Failed') return 'status-fail';
+  return 'status-todo';
+}
+
+// ─── DETAIL PANEL ───
+function showDetail(code) {
+  const c = components.find(x => x.Code === code);
+  if (!c) return;
+  currentComponent = c;
+  document.getElementById('detail-id').textContent = c.Code;
+  document.getElementById('detail-name').textContent = c.Name;
+  document.getElementById('detail-type').textContent = c.Type;
+  document.getElementById('detail-status').innerHTML = `<div class="status-chip ${statusClass(c.Status)}">${c.Status}</div>`;
+
+  const fields = [
+    { section: 'Identification', rows: [['Code', c.Code], ['Type', c.Type], ['Serial', c.Serial], ['Batch / Lot', c.Batch]] },
+    { section: 'Traceability', rows: [['Bundler ID', c.Bundler_ID], ['LG (Lead Glass)', c.LG_ID], ['Fibre Spool', c.Fibre_Spool], ['Absorber', c.Absorber_ID]] },
+    { section: 'Logistics', rows: [['Status', c.Status], ['Location', c.Location], ['Created', c.Created], ['Created By', c.Created_By]] },
+  ];
+
+  document.getElementById('detail-sections').innerHTML = fields.map(s => {
+    const rows = s.rows.filter(r => r[1]);
+    if (!rows.length) return '';
+    return `<div class="detail-section">
+      <div class="detail-section-title">${s.section}</div>
+      ${rows.map(r => `<div class="detail-row"><span class="detail-key">${r[0]}</span><span class="detail-val">${r[1]}</span></div>`).join('')}
+      ${c.Notes && s.section === 'Logistics' ? `<div class="detail-row"><span class="detail-key">Notes</span><span class="detail-val" style="text-align:right;font-size:11px;">${c.Notes}</span></div>` : ''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('detail-barcode').innerHTML = generateBarcodeSVG(c.Code);
+  document.getElementById('detail-panel').style.display = 'flex';
+}
+
+function closeDetail(e) {
+  if (!e || e.target === document.getElementById('detail-panel')) {
+    document.getElementById('detail-panel').style.display = 'none';
+    currentComponent = null;
+  }
+}
+
+// ─── ADD COMPONENT ───
+function updateCodePreview() {
+  const type = document.getElementById('new-type').value;
+  const name = document.getElementById('new-name').value.trim();
+  if (!type || !name) { document.getElementById('code-preview-wrap').style.display = 'none'; return; }
+  const prefix = { Module: 'MOD', Bundler: 'BND', LG: 'LG', 'Fibre Spool': 'FSP', Absorber: 'ABS', SiPM: 'SIP', PCB: 'PCB', Other: 'OTH' }[type] || 'CMP';
+  const slug = name.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 10);
+  const ts = Date.now().toString(36).toUpperCase().slice(-4);
+  const code = `${prefix}-${slug}-${ts}`;
+  document.getElementById('code-preview').textContent = code;
+  document.getElementById('barcode-preview').innerHTML = generateBarcodeSVG(code, 180, 50);
+  document.getElementById('code-preview-wrap').style.display = 'block';
+
+  // Show/hide module fields
+  const isModule = type === 'Module';
+  ['field-bundler','field-lg','field-spool','field-absorber'].forEach(id => {
+    document.getElementById(id).style.display = isModule ? 'block' : 'none';
+  });
+}
+
+// Init: hide module fields
+document.addEventListener('DOMContentLoaded', () => {
+  ['field-bundler','field-lg','field-spool','field-absorber'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+});
+
+async function addComponent() {
+  const type = document.getElementById('new-type').value;
+  const name = document.getElementById('new-name').value.trim();
+  if (!type || !name) { showToast('Type and Name are required', 'error'); return; }
+  const code = document.getElementById('code-preview').textContent;
+  if (!code) { showToast('Generate a code first by selecting type and name', 'error'); return; }
+
+  const row = [
+    code, type, name,
+    document.getElementById('new-batch').value,
+    document.getElementById('new-serial').value,
+    document.getElementById('new-status').value,
+    document.getElementById('new-location').value,
+    document.getElementById('new-bundler').value,
+    document.getElementById('new-lg').value,
+    document.getElementById('new-spool').value,
+    document.getElementById('new-absorber').value,
+    document.getElementById('new-notes').value,
+    new Date().toISOString().slice(0, 10),
+    document.getElementById('user-info').textContent || 'unknown',
+  ];
+
+  try {
+    await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId,
+      range: `${SHEET_NAME}!A1`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      resource: { values: [row] },
+    });
+    showToast('Component saved! Code: ' + code, 'success');
+    clearForm();
+    loadComponents();
+    switchTab('browse');
+  } catch (e) {
+    showToast('Error saving: ' + e.message, 'error');
+  }
+}
+
+function clearForm() {
+  ['new-type','new-name','new-batch','new-serial','new-status','new-location','new-bundler','new-lg','new-spool','new-absorber','new-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.tagName === 'SELECT' ? el.options[0].value : '';
+  });
+  document.getElementById('code-preview-wrap').style.display = 'none';
+}
+
+// ─── SCANNER ───
+function switchTab(tab) {
+  ['browse', 'scanner', 'add'].forEach(t => {
+    document.getElementById(t + '-tab').style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', ['browse','scanner','add'][i] === tab);
+  });
+  if (tab !== 'scanner' && scannerRunning) stopScanner();
+}
+
+function startScanner() {
+  if (!navigator.mediaDevices) { showToast('Camera not available on this device', 'error'); return; }
+  document.getElementById('scanner-status').textContent = 'Starting camera...';
+  Quagga.init({
+    inputStream: { name: 'Live', type: 'LiveStream', target: document.getElementById('scanner-viewport'), constraints: { facingMode: 'environment', width: 640, height: 480 } },
+    decoder: { readers: ['code_128_reader', 'ean_reader', 'code_39_reader', 'upc_reader'] },
+    locate: true,
+  }, (err) => {
+    if (err) { showToast('Camera error: ' + err, 'error'); document.getElementById('scanner-status').textContent = 'Error: ' + err; return; }
+    Quagga.start();
+    scannerRunning = true;
+    document.getElementById('scan-btn').style.display = 'none';
+    document.getElementById('stop-btn').style.display = 'inline-block';
+    document.getElementById('scanner-status').textContent = 'Scanning... point at a barcode';
+  });
+
+  Quagga.onDetected((result) => {
+    const code = result.codeResult.code;
+    stopScanner();
+    document.getElementById('scanner-status').textContent = 'Detected: ' + code;
+    lookupByCode(code);
+  });
+}
+
+function stopScanner() {
+  if (scannerRunning) { Quagga.stop(); scannerRunning = false; }
+  document.getElementById('scan-btn').style.display = 'inline-block';
+  document.getElementById('stop-btn').style.display = 'none';
+  document.getElementById('scanner-status').textContent = 'Camera stopped';
+}
+
+function lookupCode() {
+  const code = document.getElementById('manual-input').value.trim();
+  if (!code) return;
+  lookupByCode(code);
+}
+
+function lookupByCode(code) {
+  const c = components.find(x => x.Code === code);
+  if (c) { showDetail(c.Code); }
+  else { showToast('Component not found: ' + code, 'error'); }
+}
+
+// ─── BARCODE SVG (Code 128 simplified visual) ───
+function generateBarcodeSVG(text, width = 220, height = 60) {
+  // Simple visual barcode representation
+  let bars = '';
+  let x = 10;
+  const barW = (width - 20) / (text.length * 8 + 4);
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    for (let b = 7; b >= 0; b--) {
+      const bit = (c >> b) & 1;
+      if (bit) {
+        bars += `<rect x="${x.toFixed(1)}" y="4" width="${(barW * 0.8).toFixed(1)}" height="${height - 16}" fill="#000"/>`;
+      }
+      x += barW;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" style="display:block;">
+    <rect width="${width}" height="${height}" fill="white" rx="2"/>
+    ${bars}
+    <text x="${width/2}" y="${height - 2}" font-family="monospace" font-size="8" text-anchor="middle" fill="#333">${text}</text>
+  </svg>`;
+}
+
+// ─── PRINT DYMO LABEL ───
+function printLabel(comp) {
+  if (!comp) return;
+  const w = window.open('', '_blank', 'width=400,height=300');
+  w.document.write(`<!DOCTYPE html><html><head><title>Label</title>
+  <style>
+    body { margin: 0; padding: 8px; font-family: 'Courier New', monospace; width: 252px; }
+    .label { border: 1px solid #000; padding: 6px; width: 252px; }
+    .name { font-size: 11px; font-weight: bold; margin-bottom: 4px; }
+    .code { font-size: 9px; color: #333; margin-bottom: 4px; }
+    .meta { font-size: 8px; color: #555; }
+    @media print { body { margin: 0; } }
+  </style></head><body>
+  <div class="label">
+    <div class="name">${comp.Name}</div>
+    <div>${generateBarcodeSVG(comp.Code, 230, 50)}</div>
+    <div class="code">${comp.Code}</div>
+    <div class="meta">${comp.Type}${comp.Batch ? ' · ' + comp.Batch : ''}${comp.Status ? ' · ' + comp.Status : ''}</div>
+  </div>
+  <script>window.onload=()=>{window.print();}<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+// ─── TOAST ───
+let toastTimer;
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + (type || '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = ''; }, 3500);
+}
+
+// ─── INIT ───
+loadGoogleAPIs();
+// Default tab
+switchTab('browse');
+</script>
+</body>
+</html>
