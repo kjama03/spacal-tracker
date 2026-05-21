@@ -1349,19 +1349,14 @@ function lookupByCode(code) {
   else { showToast('Component not found: ' + code, 'error'); }
 }
 
-// ─── QR CODE generator ───
+// ─── QR CODE generator using Google Charts API ───
 function generateBarcodeSVG(text, width = 120, height = 120) {
-  const id = 'qr-' + Math.random().toString(36).slice(2);
-  return '<canvas id="' + id + '" data-qr="' + encodeURIComponent(text) + '" width="' + width + '" height="' + height + '"></canvas>';
+  const url = 'https://api.qrserver.com/v1/create-qr-code/?size=' + width + 'x' + height + '&data=' + encodeURIComponent(text) + '&margin=4';
+  return '<img src="' + url + '" width="' + width + '" height="' + height + '" style="display:block;border-radius:4px;" alt="QR: ' + text + '" />';
 }
 
 function renderAllQR() {
-  document.querySelectorAll('canvas[data-qr]').forEach(canvas => {
-    const text = decodeURIComponent(canvas.getAttribute('data-qr'));
-    QRCode.toCanvas(canvas, text, { width: parseInt(canvas.width), margin: 1, color: { dark: '#000000', light: '#ffffff' } }, err => {
-      if (err) console.error('QR error:', err);
-    });
-  });
+  // Not needed with img approach
 }
 
 // ─── PRINT DYMO LABEL ───
