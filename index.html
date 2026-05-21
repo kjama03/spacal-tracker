@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SpaCal Component Tracker</title>
 <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
@@ -1347,27 +1348,26 @@ function lookupByCode(code) {
   else { showToast('Component not found: ' + code, 'error'); }
 }
 
-// ─── BARCODE SVG (Code 128 simplified visual) ───
+// ─── BARCODE SVG using JsBarcode ───
 function generateBarcodeSVG(text, width = 220, height = 60) {
-  // Simple visual barcode representation
-  let bars = '';
-  let x = 10;
-  const barW = (width - 20) / (text.length * 8 + 4);
-  for (let i = 0; i < text.length; i++) {
-    const c = text.charCodeAt(i);
-    for (let b = 7; b >= 0; b--) {
-      const bit = (c >> b) & 1;
-      if (bit) {
-        bars += `<rect x="${x.toFixed(1)}" y="4" width="${(barW * 0.8).toFixed(1)}" height="${height - 16}" fill="#000"/>`;
-      }
-      x += barW;
-    }
+  try {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    JsBarcode(svg, text, {
+      format: 'CODE128',
+      width: 2,
+      height: height - 16,
+      displayValue: true,
+      fontSize: 10,
+      margin: 6,
+      background: '#ffffff',
+      lineColor: '#000000',
+    });
+    const wrap = document.createElement('div');
+    wrap.appendChild(svg);
+    return wrap.innerHTML;
+  } catch(e) {
+    return '<svg width="' + width + '"><text y="20" fill="red">Error: ' + e.message + '</text></svg>';
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" style="display:block;">
-    <rect width="${width}" height="${height}" fill="white" rx="2"/>
-    ${bars}
-    <text x="${width/2}" y="${height - 2}" font-family="monospace" font-size="8" text-anchor="middle" fill="#333">${text}</text>
-  </svg>`;
 }
 
 // ─── PRINT DYMO LABEL ───
