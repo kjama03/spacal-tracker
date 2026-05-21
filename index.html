@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SpaCal Component Tracker</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
@@ -1271,32 +1271,65 @@ function switchTab(tab) {
   if (tab !== 'scanner' && scannerRunning) stopScanner();
 }
 
-function startScanner() {
+let zxingReader = null;
+
+async function startScanner() {
   if (!navigator.mediaDevices) { showToast('Camera not available on this device', 'error'); return; }
   document.getElementById('scanner-status').textContent = 'Starting camera...';
-  Quagga.init({
-    inputStream: { name: 'Live', type: 'LiveStream', target: document.getElementById('scanner-viewport'), constraints: { facingMode: 'environment', width: 640, height: 480 } },
-    decoder: { readers: ['code_128_reader', 'ean_reader', 'code_39_reader', 'upc_reader'] },
-    locate: true,
-  }, (err) => {
-    if (err) { showToast('Camera error: ' + err, 'error'); document.getElementById('scanner-status').textContent = 'Error: ' + err; return; }
-    Quagga.start();
+  try {
+    const hints = new Map();
+    const formats = [
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.QR_CODE,
+    ];
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+    zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+    const videoEl = document.createElement('video');
+    videoEl.style.width = '100%';
+    videoEl.style.height = '100%';
+    videoEl.style.objectFit = 'cover';
+    const viewport = document.getElementById('scanner-viewport');
+    // Remove old video if any
+    const oldVideo = viewport.querySelector('video');
+    if (oldVideo) oldVideo.remove();
+    viewport.insertBefore(videoEl, viewport.firstChild);
+
     scannerRunning = true;
     document.getElementById('scan-btn').style.display = 'none';
     document.getElementById('stop-btn').style.display = 'inline-block';
     document.getElementById('scanner-status').textContent = 'Scanning... point at a barcode';
-  });
 
-  Quagga.onDetected((result) => {
-    const code = result.codeResult.code;
-    stopScanner();
-    document.getElementById('scanner-status').textContent = 'Detected: ' + code;
-    lookupByCode(code);
-  });
+    await zxingReader.decodeFromConstraints(
+      { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+      videoEl,
+      (result, err) => {
+        if (result) {
+          const code = result.getText();
+          stopScanner();
+          document.getElementById('scanner-status').textContent = 'Detected: ' + code;
+          document.getElementById('manual-input').value = code;
+          lookupByCode(code);
+        }
+      }
+    );
+  } catch(e) {
+    showToast('Camera error: ' + e.message, 'error');
+    document.getElementById('scanner-status').textContent = 'Error: ' + e.message;
+    scannerRunning = false;
+    document.getElementById('scan-btn').style.display = 'inline-block';
+    document.getElementById('stop-btn').style.display = 'none';
+  }
 }
 
 function stopScanner() {
-  if (scannerRunning) { Quagga.stop(); scannerRunning = false; }
+  if (zxingReader) { zxingReader.reset(); zxingReader = null; }
+  scannerRunning = false;
   document.getElementById('scan-btn').style.display = 'inline-block';
   document.getElementById('stop-btn').style.display = 'none';
   document.getElementById('scanner-status').textContent = 'Camera stopped';
